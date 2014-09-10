@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+    <h:head>
+        <title>Web Export Login</title>
+    </h:head>
+    <h:body>
+        <div align="center" style="margin-top:30px;">
+            <f:view id="loginView">
+                <h:form id="loginForm">
+                    <h:messages id="loginFormMsgs" style="color:red;margin:8px;"/>
+                    <h:panelGrid columns="2">
+                        User:
+                        <h:inputText id="userIT" size="20" maxlength="20" required="true" value="#{loginBean.user}">
+                        </h:inputText>
+                        Password:
+                        <h:inputSecret id="passwdIS" size="20" maxlength="20" required="true" value="#{loginBean.password}"/>
+                        <h:outputText/>
+                        <h:commandButton id="submit" value="Submit" action="#{loginBean.submitButtonAction}" style="margin-top:8px;"/>
+                    </h:panelGrid>
+                </h:form>
+            </f:view>
+        </div>
+    </h:body>
+</html>
+

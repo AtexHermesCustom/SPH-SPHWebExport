@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.4" xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd">
+    <context-param>
+        <param-name>org.jboss.jbossfaces.WAR_BUNDLES_JSF_IMPL</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>javax.faces.PROJECT_STAGE</param-name>
+        <param-value>Development</param-value>
+    </context-param>
+    <servlet>
+        <servlet-name>BasicWebExportServlet</servlet-name>
+        <servlet-class>de.atex.h11.custom.sph.export.webapp.BasicWebExportServlet</servlet-class>
+    </servlet>
+    <servlet>
+        <servlet-name>FormattedWebExportServlet</servlet-name>
+        <servlet-class>de.atex.h11.custom.sph.export.webapp.FormattedWebExportServlet</servlet-class>
+    </servlet>
+    <servlet>
+        <servlet-name>NCMExportServlet</servlet-name>
+        <servlet-class>de.atex.h11.custom.sph.export.webapp.NCMExportServlet</servlet-class>
+    </servlet>
+    <servlet>
+        <servlet-name>Faces Servlet</servlet-name>
+        <servlet-class>javax.faces.webapp.FacesServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>BasicWebExportServlet</servlet-name>
+        <url-pattern>/BasicWebExportServlet</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>BasicWebExportServlet</servlet-name>
+        <url-pattern>/BasicWebExport</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>FormattedWebExportServlet</servlet-name>
+        <url-pattern>/FormattedWebExportServlet</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>FormattedWebExportServlet</servlet-name>
+        <url-pattern>/FormattedWebExport</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>NCMExportServlet</servlet-name>
+        <url-pattern>/NCMExportServlet</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>NCMExportServlet</servlet-name>
+        <url-pattern>/NCMExport</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>Faces Servlet</servlet-name>
+        <url-pattern>/faces/*</url-pattern>
+    </servlet-mapping>
+    <session-config>
+        <session-timeout>
+            3600
+        </session-timeout>
+    </session-config>
+    <welcome-file-list>
+        <welcome-file>faces/Login.xhtml</welcome-file>
+    </welcome-file-list>
+</web-app>

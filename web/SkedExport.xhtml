@@ -1,0 +1,110 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+    <h:head>
+        <h:outputStylesheet library="css" name="styles.css"/>
+        <title>Sked/Listing</title>
+    </h:head>
+    <h:body>
+        <div align="center" style="margin-top:30px;">
+            <f:view id="skedExportView">
+                <h:form id="skedExportForm">
+                    <h:messages id="skedExportFormMsgs" style="color:red;margin:8px;"/>
+                    <table>
+                        <tr>
+                            <td>
+                                Publication:
+                            </td>
+                            <td>
+                                <h:selectOneMenu id="skedPublicationMenu" immediate="true" value="#{skedExportBean.publication}" onchange="submit()">
+                                    <f:valueChangeListener binding="#{skedExportBean}"/>
+                                    <f:selectItems value="#{skedExportBean.publications}"/>
+                                </h:selectOneMenu>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Edition:
+                            </td>
+                            <td>
+                                <h:selectManyListbox id="skedEditionMenu" immediate="true" value="#{skedExportBean.selectedEditions}" >
+                                    <f:selectItems value="#{skedExportBean.editions}"/>
+                                </h:selectManyListbox>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Publishing Date:
+                            </td>
+                            <td>
+                                <h:inputText id="skedPubDateIT" size="10" required="true" value="#{skedExportBean.publishingDate}" onchange="submit()">
+                                    <f:convertDateTime pattern="dd-MM-yyyy"/>
+                                </h:inputText>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Export for Web:
+                            </td>
+                            <td>
+                                <h:selectBooleanCheckbox id="exportForWebCB" value="#{skedExportBean.exportForWeb}" disabled="#{skedExportBean.webCheckboxDisabled}" />
+                            </td>
+                        </tr>                        
+                        <tr>
+                            <td>
+                                Export for Mktg:
+                            </td>
+                            <td>
+                                <h:selectBooleanCheckbox id="exportForMktgCB" value="#{skedExportBean.exportForMktg}" disabled="#{skedExportBean.mktgCheckboxDisabled}" />
+                            </td>
+                        </tr>                           
+                        <tr>
+                            <td/>
+                            <td>
+                                <h:commandButton id="skedSubmitButton" value="Submit" action="#{skedExportBean.submitButtonAction}" style="margin-top:8px; margin-right:16px;"/>
+                                <h:commandButton id="skedClearButton" value="Clear" action="#{skedExportBean.clearButtonAction}" style="margin-top:8px; margin-right:32px;"/>
+                                <h:commandButton id="skedBackButton" value="Back" action="#{skedExportBean.backButtonAction}" style="margin-top:8px; margin-right:16px;"/>
+                                <h:commandButton id="skedObjectButton" value="Export of Objects" action="#{skedExportBean.objectButtonAction}" style="margin-top:8px;"/>
+                            </td>
+                        </tr>
+                    </table>
+                </h:form>
+                <div style="margin-top:30px;">
+                    <h3>Latest Report Execution</h3>
+                    <h:dataTable value="#{applicationBean.skedReportExecutions}" var="item"
+                            styleClass="executions-table"
+                            headerClass="executions-table-header"
+                            rowClasses="executions-table-odd-row,executions-table-even-row">
+                        <h:column>
+                            <f:facet name="header">User</f:facet>
+                            #{item.userName}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Publication Date</f:facet>
+                            #{item.pubDate}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Publication</f:facet>
+                            #{item.publication}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Edition</f:facet>
+                            #{item.edition}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Page Range</f:facet>
+                            #{item.pageRange}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Timestamp</f:facet>
+                            #{item.timestamp}
+                        </h:column>
+                    </h:dataTable>
+                </div>
+            </f:view>
+        </div>
+    </h:body>
+</html>
+

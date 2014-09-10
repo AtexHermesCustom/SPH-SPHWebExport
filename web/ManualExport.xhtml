@@ -1,0 +1,135 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+    <h:head>
+        <h:outputStylesheet library="css" name="styles.css"/>
+        <title>Manual Web Export</title>
+    </h:head>
+    <h:body>
+        <div align="center" style="margin-top:30px;">
+            <f:view id="exportView">
+                <h:form id="exportForm">
+                    <h:messages id="exportFormMsgs" style="color:red;margin:8px;"/>
+                    <table>
+                        <tr>
+                            <td>
+                                Publication:
+                            </td>
+                            <td>
+                                <h:selectOneMenu id="publicationMenu" immediate="true" value="#{manualExportBean.publication}" onchange="submit()">
+                                    <f:valueChangeListener binding="#{manualExportBean}"/>
+                                    <f:selectItems value="#{manualExportBean.publications}"/>
+                                </h:selectOneMenu>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Edition:
+                            </td>
+                            <td>
+                                <h:selectOneMenu id="editionMenu" immediate="true" value="#{manualExportBean.edition}" onchange="submit()">
+                                    <f:valueChangeListener binding="#{manualExportBean}"/>
+                                    <f:selectItems value="#{manualExportBean.editions}"/>
+                                </h:selectOneMenu>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Publishing Date:
+                            </td>
+                            <td>
+                                <h:inputText id="pubDateIT" size="10" required="true" value="#{manualExportBean.publishingDate}" onchange="submit()">
+                                    <f:convertDateTime pattern="dd-MM-yyyy"/>
+                                </h:inputText>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Page Range:
+                            </td>
+                            <td>
+                                <h:inputText id="fromPageIT" size="5" maxlength="5" value="#{manualExportBean.fromPage}" onchange="submit()" disabled="#{manualExportBean.pageRangeDisabled}">
+                                    <!-- <f:convertNumber integerOnly="true"/> -->
+                                    <f:validateLongRange id="fromPageVLR" for="fromPageIT" minimum="1" maximum="99999"/>
+                                </h:inputText>
+                                -
+                                <h:inputText id="toPageIT" size="5" maxlength="5" value="#{manualExportBean.toPage}" onchange="submit()" disabled="#{manualExportBean.pageRangeDisabled}">
+                                    <!-- <f:convertNumber integerOnly="true"/> -->
+                                    <f:validateLongRange id="toPageVLR" for="toPageIT" minimum="#{manualExportBean.fromPage}" maximum="99999"/>
+                                </h:inputText>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Export Graphic:
+                            </td>
+                            <td>
+                                <h:selectBooleanCheckbox id="exportGraphicCB" value="#{manualExportBean.exportGraphic}" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Export for Web:
+                            </td>
+                            <td>
+                                <h:selectBooleanCheckbox id="exportForWebCB" value="#{manualExportBean.exportForWeb}" disabled="#{manualExportBean.webCheckboxDisabled}" />
+                            </td>
+                        </tr>                        
+                        <tr>
+                            <td>
+                                Export for Mktg:
+                            </td>
+                            <td>
+                                <h:selectBooleanCheckbox id="exportForMktgCB" value="#{manualExportBean.exportForMktg}" disabled="#{manualExportBean.mktgCheckboxDisabled}" />
+                            </td>
+                        </tr>                        
+                        <tr>
+                            <td/>
+                            <td>
+                                <h:commandButton id="submitButton" value="Submit" action="#{manualExportBean.submitButtonAction}" style="margin-top:8px; margin-right: 16px;"/>
+                                <h:commandButton id="clearButton" value="Clear" action="#{manualExportBean.clearButtonAction}" style="margin-top:8px; margin-right:32px;"/>
+                                <h:commandButton id="backButton" value="Back" action="#{manualExportBean.backButtonAction}" style="margin-top:8px; margin-right:16px;"/>
+                                <h:commandButton id="skedButton" value="Sked/Listing" action="#{manualExportBean.skedButtonAction}" style="margin-top:8px;"/>
+                            </td>
+                        </tr>
+                    </table>
+                </h:form>
+                <div style="margin-top: 30px;">
+                    <h3>Latest Report Execution</h3>
+                    <h:dataTable value="#{applicationBean.exportReportExecutions}" var="item"
+                            styleClass="executions-table"
+                            headerClass="executions-table-header"
+                            rowClasses="executions-table-odd-row,executions-table-even-row">
+                        <h:column>
+                            <f:facet name="header">User</f:facet>
+                            #{item.userName}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Publication Date</f:facet>
+                            #{item.pubDate}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Publication</f:facet>
+                            #{item.publication}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Edition</f:facet>
+                            #{item.edition}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Page Range</f:facet>
+                            #{item.pageRange}
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">Timestamp</f:facet>
+                            #{item.timestamp}
+                        </h:column>
+                    </h:dataTable>
+                </div>
+            </f:view>
+        </div>
+    </h:body>
+</html>
+
