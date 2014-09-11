@@ -7,7 +7,7 @@
  *                      Germany
  *
  * Audit:
- *         20140909     jpm -value for <person> element -grouping of byline, email, title and twitter -tagged text
+ *         20140909     jpm -value for <byline> element -grouping of byline, email, title and twitter -tagged text
  *         20140903     jpm -properties file name can be passed as a parameter
  *         20131112     jpm -accept "destination" parameter to allow multiple target destinations
  *         20131002     jpm -add special tag handling (use TagSpecialHandler class)
@@ -1168,16 +1168,27 @@ public class FormattedWebExportServlet extends HttpServlet {
         }
 
         // set person
-        //strByline = sbByline.toString();
-        strByline = getPersonValue(sbByline, sbTitle, sbEmail, sbTwitter);
+        strByline = sbByline.toString();
         if (strByline != null) {
             strByline = strByline.replace(LINEBREAK, " ").replaceAll("\\ +", " ").trim();
             nl = (NodeList) xp.evaluate("//body/person", doc, XPathConstants.NODESET);
             if (nl.getLength() == 1) {
                 strByline = replaceReservedCharMarkers(strByline);
+                strByline = strByline.replaceAll("\\ *,\\ *", ",");
                 ((Element) nl.item(0)).setTextContent(strByline.trim());
             }
         }
+        
+        // set byline - combination of byline, email, twitter and title
+        strByline = getByline(sbByline, sbTitle, sbEmail, sbTwitter);
+        if (strByline != null) {
+            strByline = strByline.replace(LINEBREAK, " ").replaceAll("\\ +", " ").trim();
+            nl = (NodeList) xp.evaluate("//body/byline", doc, XPathConstants.NODESET);
+            if (nl.getLength() == 1) {
+                strByline = replaceReservedCharMarkers(strByline);
+                ((Element) nl.item(0)).setTextContent(strByline.trim());
+            }
+        }  
         
         // set title
         strTitle = sbTitle.toString();
@@ -1395,7 +1406,7 @@ public class FormattedWebExportServlet extends HttpServlet {
         }          
     }
     
-    private String getPersonValue(StringBuilder sbByline, StringBuilder sbTitle, 
+    private String getByline(StringBuilder sbByline, StringBuilder sbTitle, 
             StringBuilder sbEmail, StringBuilder sbTwitter) {
         // person string: [name1], [email1], [twitter1], [title1] | [name2], [email2], [twitter2], [title2] | ...
         String value = "";
