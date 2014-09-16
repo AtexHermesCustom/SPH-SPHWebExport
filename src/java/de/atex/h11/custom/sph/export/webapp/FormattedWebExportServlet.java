@@ -428,7 +428,7 @@ public class FormattedWebExportServlet extends HttpServlet {
             transformer.setOutputProperty(OutputKeys.METHOD, "xml");
             transformer.setOutputProperty(OutputKeys.STANDALONE, "yes");
             transformer.setOutputProperty(OutputKeys.CDATA_SECTION_ELEMENTS, 
-                "caption copyright person title country kick content h1 h2 video abstract");
+                "caption copyright person title country kick content h1 h2 video abstract byline hyperlink");
             transformer.setOutputProperty("{http://xml.apache.org/xsl}indent-amount", "4");
         } catch (Exception ex) {
             throw new ServletException(ex);
@@ -1370,6 +1370,7 @@ public class FormattedWebExportServlet extends HttpServlet {
                     s = s.substring(bylineMarkers[i].length()).trim();
                 }
             }               
+            s = s.replaceAll("^\\s*,", "");
             s = s.replaceAll("\\s+(?i)and\\s+", ", ");  // replace " and " with a comma
             if (sbByline.length() > 0 && s.length() > 0) {
                 sbByline.append(", ");
@@ -1410,6 +1411,7 @@ public class FormattedWebExportServlet extends HttpServlet {
             StringBuilder sbEmail, StringBuilder sbTwitter) {
         // person string: [name1], [email1], [twitter1], [title1] | [name2], [email2], [twitter2], [title2] | ...
         String value = "";
+        String tmpValue = "";
         
         String[] bylines = sbByline.toString().split(",");
         String[] emails = sbEmail.toString().split(",");
@@ -1429,7 +1431,12 @@ public class FormattedWebExportServlet extends HttpServlet {
             if (twitters.length > i) { twitter = twitters[i].trim(); }
             if (titles.length > i) { title = titles[i].trim(); }
             
-            value += (byline + "," + email + "," + twitter + "," + title);
+            tmpValue = (byline + "," + email + "," + twitter + "," + title);
+            
+            if (tmpValue.equals(",,,"))
+                tmpValue = "";
+                
+            value += tmpValue;
         }
         
         return value;
