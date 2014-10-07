@@ -7,6 +7,7 @@
  *                      Germany
  *
  * Audit:
+ *         20141007     jpm -updated cropping related methods
  *         20140909     jpm -value for <byline> element -grouping of byline, email, title and twitter -tagged text
  *         20140903     jpm -properties file name can be passed as a parameter
  *         20131112     jpm -accept "destination" parameter to allow multiple target destinations
@@ -96,6 +97,16 @@ import com.unisys.media.cr.adapter.ncm.model.data.values.NCMObjectValueClient;
 import com.unisys.media.cr.adapter.ncm.common.data.pk.NCMObjectPK;
 import com.unisys.media.cr.adapter.ncm.common.data.values.NCMObjectBuildProperties;
 import com.unisys.media.cr.adapter.ncm.common.data.types.NCMObjectNodeType;
+import java.awt.image.Raster;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Scanner;
+import javax.imageio.IIOException;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 /**
  *
@@ -270,6 +281,8 @@ public class FormattedWebExportServlet extends HttpServlet {
                     int rotationAngle = getRotationAngle(nl.item(i));
                     Dimension dimension = getDimension(nl.item(i));
                     Rectangle cropRect = getCropRect(nl.item(i));
+                    boolean flipX = getFlipX(nl.item(i));
+                    boolean flipY = getFlipY(nl.item(i));                    
                     String strHighResPath = getHighResImagePath(nl.item(i));
                     String strMedResPath = getMedResImagePath(nl.item(i));
                     String strLowResPath = getLowResImagePath(nl.item(i));
@@ -297,7 +310,19 @@ public class FormattedWebExportServlet extends HttpServlet {
                     logger.debug("Wrote " + strLowResTarget + " to " + url + ".");
                     write(url, strThumbnailTarget, crop(new File(strLowResPath), cropRect, dimension, rotationAngle));
                     logger.debug("Wrote " + strThumbnailTarget + " to " + url + ".");*/
-                    File highResFile = new File(strHighResPath);
+                    File highResFile = null;
+                    File medResFile = null;
+                    File lowResFile = null;
+                    if (strHighResPath != null) {
+                        highResFile = new File(strHighResPath);
+                    }
+                    if (strMedResPath != null) {
+                        medResFile = new File(strMedResPath);
+                    }
+                    if (strLowResPath != null) {
+                        lowResFile = new File(strLowResPath);
+                    }
+                    
                     if (props.getProperty("useOriginalAsLowres", "false").equalsIgnoreCase("true")) {
                         String strSuffix = null;
                         int pos = highResFile.getName().lastIndexOf('.');
@@ -312,7 +337,7 @@ public class FormattedWebExportServlet extends HttpServlet {
                         }
                         if (isImageXML) {
                             if (cropRect != null && props.getProperty("cropLowres", "true").equalsIgnoreCase("true") && strSuffix.equalsIgnoreCase(".jpg")) {
-                                byte[] imageBytes = crop(highResFile, cropRect, dimension, rotationAngle);
+                                byte[] imageBytes = crop(props, highResFile, medResFile, cropRect, dimension, rotationAngle, flipX, flipY);
                                 write(url, strLowResTarget, imageBytes);
                             } else {
                                 write(url, strLowResTarget, new FileInputStream(highResFile));
@@ -321,9 +346,8 @@ public class FormattedWebExportServlet extends HttpServlet {
                         }
                     } else {
                         if (isImageXML) {
-                            File medResFile = new File(strMedResPath);
                             if (cropRect != null && props.getProperty("cropLowres", "true").equalsIgnoreCase("true")) {
-                                byte[] imageBytes = crop(medResFile, cropRect, dimension, rotationAngle);
+                                byte[] imageBytes = crop(props, medResFile, medResFile, cropRect, dimension, rotationAngle, flipX, flipY);
                                 write(url, strLowResTarget, imageBytes);
                             } else {
                                 write(url, strLowResTarget, new FileInputStream(medResFile));
@@ -331,11 +355,11 @@ public class FormattedWebExportServlet extends HttpServlet {
                             logger.debug("Wrote " + strLowResTarget + " to " + url + ".");
                         }
                     }
+                    
                     if (props.getProperty("omitThumbnail", "false").equalsIgnoreCase("false")) {
                         if (isImageXML) {
-                            File lowResFile = new File(strLowResPath);
                             if (cropRect != null && props.getProperty("cropThumbnail", "true").equalsIgnoreCase("true")) {
-                                byte[] imageBytes = crop(lowResFile, cropRect, dimension, rotationAngle);
+                                byte[] imageBytes = crop(props, lowResFile, medResFile, cropRect, dimension, rotationAngle, flipX, flipY);
                                 write(url, strThumbnailTarget, imageBytes);
                             } else {
                                 write(url, strThumbnailTarget, new FileInputStream(lowResFile));
@@ -454,143 +478,89 @@ public class FormattedWebExportServlet extends HttpServlet {
     
     private Dimension getDimension (Node contNode) throws ParseException {
         Dimension dimension = null;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("dimension")) {
-                    String strData = ((ProcessingInstruction) nl.item(i)).getData();
-                    String[] s = strData.split(" ");
-                    if (s.length == 2) {
-                        int width = df.parse(s[0]).intValue();
-                        int height = df.parse(s[1]).intValue();
-                        dimension = new Dimension(width, height);
-                    } else {
-                        throw new RuntimeException("Invalid dimension data found in processing instruction.");
-                    }
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
+        String strValue = getProcessingInstructionValue(contNode, "dimension");
+        if (strValue != null) {
+            String[] s = strValue.split(" ");
+            if (s.length == 2) {
+                int width = df.parse(s[0]).intValue();
+                int height = df.parse(s[1]).intValue();
+                dimension = new Dimension(width, height);
             }
         }
-
         return dimension;
     }
 
-
-    private Rectangle getCropRect (Node contNode) {
+    private Rectangle getCropRect (Node contNode) throws ParseException {
         Rectangle cropRect = null;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("crop-rect")) {
-                    String strData = ((ProcessingInstruction) nl.item(i)).getData();
-                    String[] s = strData.split(" ");
-                    if (s.length == 4) {
-                        int bottom = Integer.parseInt(s[0]);
-                        int left = Integer.parseInt(s[1]);
-                        int top = Integer.parseInt(s[2]);
-                        int right = Integer.parseInt(s[3]);
-                        cropRect = new Rectangle(left, top, right - left, bottom - top);
-                    } else {
-                        throw new RuntimeException("Invalid crop data found in processing instruction.");
-                    }
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
-            }
+        String strValue = getProcessingInstructionValue(contNode, "crop-rect");
+        if (strValue != null) {
+            String[] s = strValue.split(" ");
+            if (s.length == 4) {
+                int bottom = Integer.parseInt(s[0]);
+                int left = Integer.parseInt(s[1]);
+                int top = Integer.parseInt(s[2]);
+                int right = Integer.parseInt(s[3]);
+                cropRect = new Rectangle(left, top, right - left, bottom - top);
+            } else {
+            }            
         }
-
         return cropRect;
     }
-
     
     private int getRotationAngle (Node contNode) throws ParseException {
         int rotationAngle = 0;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("rotate")) {
-                    String strData = ((ProcessingInstruction) nl.item(i)).getData();
-                    rotationAngle = df.parse(strData).intValue();
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
-            }
-        }
-
+        String strValue = getProcessingInstructionValue(contNode, "rotate");
+        if (strValue != null) rotationAngle = df.parse(strValue).intValue();
         return rotationAngle;
     }
-
+    
+    private boolean getFlipX (Node contNode) throws ParseException {
+        boolean flipX = false;
+        String strValue = getProcessingInstructionValue(contNode, "flip-x");
+        if (strValue != null) flipX = strValue.equalsIgnoreCase("true");
+        return flipX;
+    }    
+    
+    private boolean getFlipY (Node contNode) throws ParseException {
+        boolean flipY = false;
+        String strValue = getProcessingInstructionValue(contNode, "flip-y");
+        if (strValue != null) flipY = strValue.equalsIgnoreCase("true");
+        return flipY;
+    }          
 
     private String getHighResImagePath (Node contNode) throws ParseException {
-        String strImagePath = null;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("highres-imagepath")) {
-                    strImagePath = ((ProcessingInstruction) nl.item(i)).getData();
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
-            }
-        }
-
+        String strImagePath = getProcessingInstructionValue(contNode, "highres-imagepath");
         return strImagePath;
     }
-
 
     private String getMedResImagePath (Node contNode) throws ParseException {
-        String strImagePath = null;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("medres-imagepath")) {
-                    strImagePath = ((ProcessingInstruction) nl.item(i)).getData();
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
-            }
-        }
-
+        String strImagePath = getProcessingInstructionValue(contNode, "medres-imagepath");
         return strImagePath;
     }
-
 
     private String getLowResImagePath (Node contNode) throws ParseException {
-        String strImagePath = null;
-
-        NodeList nl = contNode.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
-                // remove the processing instruction
-                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
-                if (strTarget.equals("lowres-imagepath")) {
-                    strImagePath = ((ProcessingInstruction) nl.item(i)).getData();
-                    Node parent = nl.item(i).getParentNode();
-                    parent.removeChild(nl.item(i));
-                }
-            }
-        }
-
+        String strImagePath = getProcessingInstructionValue(contNode, "lowres-imagepath");
         return strImagePath;
     }
     
-    
+    private String getProcessingInstructionValue (Node contNode, String key) throws ParseException {
+        String strValue = null;
+        NodeList nl = contNode.getChildNodes();
+        for (int i = 0; i < nl.getLength(); i++) {
+            if (nl.item(i).getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
+                String strTarget = ((ProcessingInstruction) nl.item(i)).getTarget();
+                if (strTarget.equals(key)) {
+                    strValue = ((ProcessingInstruction) nl.item(i)).getData();  // get value
+                    // remove the processing instruction
+                    Node parent = nl.item(i).getParentNode();                    
+                    parent.removeChild(nl.item(i));
+                    break;
+                }
+            }
+        }
+        return strValue;
+    }      
+        
     private String getFileName (Node node) 
             throws ParseException, XPathExpressionException {
         String strFileName = null;
@@ -613,13 +583,14 @@ public class FormattedWebExportServlet extends HttpServlet {
     }
 
 
-    private byte[] crop (File file, Rectangle cropRect, Dimension dimension, 
-            int rotationAngle) throws IOException {
+    private byte[] crop (Properties props, File srcFile, File medRes, Rectangle cropRect, Dimension dimension, 
+            int rotationAngle, boolean flipX, boolean flipY) throws IOException, InterruptedException {
         byte[] imageBytes = null;
 
-        File tempFile = File.createTempFile("web", ".jpg");
+        File tempFile = File.createTempFile("export", ".jpg");
         try {
-            cropImage(file, tempFile, cropRect, dimension, false);
+            crop(props, srcFile, medRes, tempFile, 
+                cropRect, dimension, rotationAngle, flipX, flipY);
             FileInputStream in = new FileInputStream(tempFile);
             imageBytes = new byte[(int) tempFile.length()];
             int bytesRead = 0;
@@ -632,27 +603,90 @@ public class FormattedWebExportServlet extends HttpServlet {
         }
         
         return imageBytes;
-    }
-
+    }    
     
-    private void cropImage (File srcFile, File dstFile, Rectangle cropRect,
-                              Dimension dimension, boolean bConvertToRGB)
-            throws IOException {
-        BufferedImage srcImage = ImageIO.read(srcFile); // read the source file
 
-        // Create a cropped subimage
-        int w = srcImage.getWidth();
-        int h = srcImage.getHeight();
-        int cropX = (int) ((float) w / (float) dimension.width
-                                        * (float) cropRect.x);
-        int cropY = (int) ((float) h / (float) dimension.height
-                                        * (float) cropRect.y);
-        int cropW = (int) ((float) w / (float) dimension.width
-                        * (float) (cropRect.width - cropRect.x));
-        int cropH = (int) ((float) h / (float) dimension.height
-                        * (float) (cropRect.height - cropRect.y));
-        BufferedImage croppedImage = srcImage.getSubimage(cropX, cropY,
-                                                          cropW, cropH);
+    private void crop (Properties props, File srcFile, File medFile, File dstFile, 
+            Rectangle cropRect, Dimension dimension, 
+            int rotationAngle, boolean flipX, boolean flipY) throws IOException, InterruptedException {
+                
+        Rectangle adjustedCropRect = null;
+        if (cropRect != null && dimension != null) {
+            // get source/high-res image dimensions
+            Dimension srcDim = getImageDimensions(srcFile, props);
+            int srcW = srcDim.width;
+            int srcH = srcDim.height;
+
+            // get med-res image dimensions
+            Dimension medDim = getImageDimensions(medFile, props);
+            int medW = medDim.width;
+            int medH = medDim.height;  
+            
+            // compute adjusted crop
+            /*
+            logger.finer("Image file " + srcFile.getName() + 
+                    ": origres-dim=" + srcW + "x" + srcH +
+                    ", medres-dim=" + medW + "x" + medH +
+                    ", api-dim=" + dimension.width + "x" + dimension.height);
+            */
+            /* change computation of ratio
+            float ratioX = (float) dimension.width / (float) srcW;
+            float ratioY = (float) dimension.height / (float) srcH;      
+            */
+            float ratioX, ratioY;
+            // determine whether the high-res or med-res was used
+            if (dimension.width == srcW && dimension.height == srcH) {
+                ratioX = 1;
+                ratioY = 1;                   
+            }
+            else {
+                ratioX = (float) medW / (float) srcW;
+                ratioY = (float) medH / (float) srcH;                      
+            }
+            //logger.finer("Image file " + srcFile.getName() + ": x-ratio=" + ratioX + ", y-ratio=" + ratioY);
+            int cropX = (int) ((float) cropRect.x / ratioX);
+            int cropY = (int) ((float) cropRect.y / ratioY);
+            int cropW = (int) ((float) cropRect.width / ratioX);
+            int cropH = (int) ((float) cropRect.height / ratioY);
+            //logger.finer("Image file " + srcFile.getName() + 
+            //    ": adjusted: cropX=" + cropX + ", cropY=" + cropY + ", cropW=" + cropW + ", cropH=" + cropH);
+            adjustedCropRect = new Rectangle(cropX, cropY, cropW, cropH);            
+        }
+        
+        if (props.containsKey("converterProgArgs")) {
+            String progArgsStr = props.getProperty("converterProgArgs");
+            cropImage(srcFile.getCanonicalPath(), dstFile.getCanonicalPath(),
+                      adjustedCropRect, dimension, rotationAngle, flipX, flipY, progArgsStr);
+        } else {
+            cropImage(props, srcFile, dstFile, 
+                      adjustedCropRect, dimension, rotationAngle, flipX, flipY, false);
+        }
+    }
+    
+    
+    private void cropImage (Properties props, File srcFile, File dstFile, Rectangle cropRect,
+                              Dimension dimension, int rotationAngle, boolean flipX, boolean flipY,
+                              boolean bConvertToRGB)
+            throws IOException {
+        Object[] logParams = new Object[9];
+        logParams[0] = props;
+        logParams[1] = srcFile;
+        logParams[2] = dstFile;
+        logParams[3] = cropRect;
+        logParams[4] = dimension;
+        logParams[5] = new Integer(rotationAngle);
+        logParams[5] = flipX;
+        logParams[6] = flipY;
+        logParams[8] = bConvertToRGB;
+        //logger.entering(getClass().getName(), "cropImage", logParams);
+
+        // read the source file
+        //BufferedImage srcImage = ImageIO.read(srcFile); // note: this doesn't work for CMYK images
+        BufferedImage srcImage = readJPGFile(srcFile);      // this can read CMYK
+        srcImage = convertCMYK2RGB(srcImage);
+
+        BufferedImage croppedImage = srcImage.getSubimage(cropRect.x, cropRect.y, 
+                                                          cropRect.width, cropRect.height);
         BufferedImage dstImage = croppedImage;
 
         // see if color space conversion is required
@@ -698,7 +732,241 @@ public class FormattedWebExportServlet extends HttpServlet {
         ios.flush();
         writer.dispose();
         ios.close();
+
+        //logger.exiting(getClass().getName(), "cropImage");
     }
+
+    
+    private void cropImage (String srcFileName, String dstFileName, Rectangle cropRect,
+                              Dimension dimension, int rotationAngle, boolean flipX, boolean flipY, 
+                              String progArgs)
+            throws IOException {
+        Object[] logParams = new Object[8];
+        logParams[0] = srcFileName;
+        logParams[1] = dstFileName;
+        logParams[2] = cropRect;
+        logParams[3] = dimension;
+        logParams[4] = new Integer(rotationAngle);
+        logParams[5] = flipX;
+        logParams[6] = flipY;
+        logParams[7] = progArgs;
+        //logger.entering(getClass().getName(), "cropImage", logParams);
+
+        if (progArgs != null) {
+            // Build the external program's argument list.
+            try {
+                List<String> argList = new LinkedList<String>();
+                Scanner scanner = new Scanner(progArgs);
+                scanner.useDelimiter("\\s");
+                while (scanner.hasNext()) {
+                    String token = scanner.next();
+                    if (token.contains("$INFILE")) {
+                        argList.add(token.replace("$INFILE", srcFileName));
+                    } else if (token.contains("$OUTFILE")) {
+                        argList.add(token.replace("$OUTFILE", dstFileName));
+                    } else if (token.contains("$CROPRECT")) {
+                        if (cropRect != null) {
+                            argList.add(token.replace("$CROPRECT", "-crop"));
+                            String s = Integer.toString(cropRect.width) + "x" + Integer.toString(cropRect.height) + "+" +
+                                       Integer.toString(cropRect.x) + "+" + Integer.toString(cropRect.y);
+                            argList.add(s);
+                        }                        
+                    } else if (token.contains("$FLIPX")) {
+                        if (flipX) argList.add(token.replace("$FLIPX", "-flop"));
+                    } else if (token.contains("$FLIPY")) {
+                        if (flipY) argList.add(token.replace("$FLIPY", "-flip"));
+                    } else if (token.contains("$ROTATE")) {
+                        if (rotationAngle != 0) {
+                            argList.add(token.replace("$ROTATE", "-rotate"));
+                            String s = Integer.toString(rotationAngle);
+                            argList.add(s);
+                        }
+                    } else {
+                        argList.add(token);
+                    }
+                }
+                runProgram(argList);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        } else throw new IllegalArgumentException("progArgs == null");
+
+        //logger.exiting(getClass().getName(), "cropImage");
+    }
+    
+    
+    private Dimension getImageDimensions(File imgFile, Properties props) throws IOException, InterruptedException {
+        //logger.entering(getClass().getName(), "getImageDimensions", imgFile.getName());
+        
+        int width = 0;
+        int height = 0;
+        
+        if (props.containsKey("imageTestProgArgs") &&
+            props.containsKey("imageTestWidthPattern") &&
+            props.containsKey("imageTestHeightPattern")) {
+            // use external program to get dimensions
+            List<String> argList = new LinkedList<String>();
+            Scanner scanner = new Scanner(props.getProperty("imageTestProgArgs"));
+            scanner.useDelimiter("\\s");
+            while (scanner.hasNext()) {
+                String token = scanner.next();
+                if (token.contains("$INFILE")) {
+                    argList.add(token.replace("$INFILE", imgFile.getCanonicalPath()));
+                } else {
+                    argList.add(token);
+                }
+            }
+            String response = runProgramGetResp(argList);
+            String widthStr = response.replaceAll(props.getProperty("imageTestWidthPattern"), "$1");
+            String heightStr = response.replaceAll(props.getProperty("imageTestHeightPattern"), "$1");
+            //logger.finer("getImageDimensions - parsed values: width=" + widthStr + ", height=" + heightStr);
+            width = Integer.parseInt(widthStr);
+            height = Integer.parseInt(heightStr);
+        }
+        else {
+            // get dimensions
+            //BufferedImage srcImage = ImageIO.read(imgFile);   // note: this doesn't work for CMYK images
+            BufferedImage img = readJPGFile(imgFile);           // this can read CMYK
+            // get image dimensions
+            width = img.getWidth();
+            height = img.getHeight();
+        }
+        
+        Dimension dimension = new Dimension(width, height);
+        
+        //logger.exiting(getClass().getName(), "getImageDimensions", dimension);
+        return dimension;        
+    }
+    
+    
+    private void runProgram (List<String> args)
+            throws IOException, InterruptedException {
+       
+        ProcessBuilder procBuilder = new ProcessBuilder(args);
+        Process proc = procBuilder.start();
+        proc.waitFor();
+
+        // Evaluate exit value.
+        int ev = proc.exitValue();
+        if (ev != 0) {
+            StringBuffer errSB = new StringBuffer();
+            errSB.append(args.get(0) + ": returned " + ev + ".");
+            InputStreamReader err = new InputStreamReader(proc.getErrorStream());
+            char[] cbuf = new char[8192];
+            int length = err.read(cbuf);
+            if (length > 0) {
+                errSB.append("\n" + new String(cbuf, 0, length));
+            }
+            err.close();
+            throw new IOException(errSB.toString());
+        }
+    }
+    
+    
+    private String runProgramGetResp (List<String> args)
+            throws IOException, InterruptedException {
+        String response = "";
+        
+        ProcessBuilder procBuilder = new ProcessBuilder(args);
+        Process proc = procBuilder.start();
+        proc.waitFor();
+
+        // Evaluate exit value.
+        int ev = proc.exitValue();
+        if (ev != 0) {
+            StringBuffer errSB = new StringBuffer();
+            errSB.append(args.get(0) + ": returned " + ev + ".");
+            InputStreamReader err = new InputStreamReader(proc.getErrorStream());
+            char[] cbuf = new char[8192];
+            int length = err.read(cbuf);
+            if (length > 0) {
+                errSB.append("\n" + new String(cbuf, 0, length));
+            }
+            err.close();
+            throw new IOException(errSB.toString());
+        }
+        
+        InputStream is = proc.getInputStream();     // to capture output from command
+        response = convertStreamToStr(is);
+        return response;
+    }        
+    
+    private String convertStreamToStr(InputStream is) throws IOException {
+        Writer writer = new StringWriter();
+        char[] buffer = new char[1024];
+        try {
+            Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+            int n;
+            while ((n = reader.read(buffer)) != -1) {
+                writer.write(buffer, 0, n);
+            }
+        }
+        finally {
+            is.close();
+        }
+        return writer.toString();
+    }    
+    
+   private BufferedImage readJPGFile(File srcFile) 
+    	throws IOException {
+    	
+        // Find a JPEG reader which supports reading Rasters.
+        Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("JPEG");
+        ImageReader reader = null;
+        while (readers.hasNext()) {
+            reader = (ImageReader) readers.next();
+            if (reader.canReadRaster())
+                break;
+        }
+
+        // Set the input.
+        ImageInputStream input = ImageIO.createImageInputStream(srcFile);
+        reader.setInput(input);
+
+        // Create the image.
+        BufferedImage image = null;
+        try {
+            // Try reading an image (including color conversion).
+            image = reader.read(0);
+        } catch(IIOException e) {
+            // Try reading a Raster (no color conversion).
+            Raster raster = reader.readRaster(0, null);
+
+            // Arbitrarily select a BufferedImage type.
+            int imageType;
+            switch (raster.getNumBands()) {
+                case 1:
+                    imageType = BufferedImage.TYPE_BYTE_GRAY;
+                    break;
+                case 3:
+                    imageType = BufferedImage.TYPE_3BYTE_BGR;
+                    break;
+                case 4:
+                    imageType = BufferedImage.TYPE_4BYTE_ABGR;
+                    break;
+                default:
+                    throw new UnsupportedOperationException();
+            }
+
+            // Create a BufferedImage.
+            image = new BufferedImage(raster.getWidth(), raster.getHeight(), imageType);
+
+            // Set the image data.
+            image.getRaster().setRect(raster);
+        }
+        
+        return image;
+    }	        
+   
+    private BufferedImage convertCMYK2RGB(BufferedImage image) throws IOException{
+        //Create a new RGB image
+        BufferedImage rgbImage = new BufferedImage(image.getWidth(), image.getHeight(),
+        		BufferedImage.TYPE_3BYTE_BGR);
+        // then do a funky color convert
+        ColorConvertOp op = new ColorConvertOp(null);
+        op.filter(image, rgbImage);
+        return rgbImage;
+    }       
     
     
     private void write (URL destURL, String destFileName, Document doc)
