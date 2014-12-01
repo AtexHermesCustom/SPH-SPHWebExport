@@ -231,8 +231,8 @@
                 <xsl:apply-templates select="./child-of-a-ncm-sp-object/ncm-object[ncm-type-property/object-type/@id=1 and (channel/@name=$channel or not(string(channel/@name)))]"/>
             </xsl:element>
         </xsl:element>
-        <!-- standalone images -->
-        <xsl:apply-templates select="./child-of-a-ncm-sp-object/ncm-object[ncm-type-property/object-type/@id=6 and (channel/@name=$channel or not(string(channel/@name)))]" mode="standalone"/>
+        <!-- package images -->
+        <xsl:apply-templates select="./child-of-a-ncm-sp-object/ncm-object[ncm-type-property/object-type/@id=6 and (channel/@name=$channel or not(string(channel/@name)))]" mode="picture-item"/>
     </xsl:template>
 
     <xsl:template match="ncm-object[ncm-type-property/object-type/@id=1]">
@@ -374,50 +374,58 @@
             <xsl:element name="{if ($objType=9) then 'graphic_low' else 'image_low'}">
                 <xsl:value-of select="concat($pub, '_', $pubdate, '_', replace(./name, ' ', ''), '_', ./obj_id, '.jpg')"/>              
             </xsl:element>
-            <xsl:choose>
-                <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and relation_obj_id=$objId and (channel=$channel or not(string(channel/@name)))]">
-                    <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and relation_obj_id=$objId and (channel=$channel or not(string(channel/@name)))]" mode="picture"/>
-                </xsl:when>
-                <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and layouts-of-a-ncm-object/ncm-layout[reference=$reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $subreference]]">
-                    <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and layouts-of-a-ncm-object/ncm-layout[reference=$reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $subreference]]" mode="picture"/>
-                </xsl:when>
-                <xsl:otherwise>
-                    <xsl:for-each select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3]">
-                        <xsl:variable name="caption_reference" select=".//ncm-layout/reference"/>
-                        <xsl:variable name="caption_subreference" select=".//ncm-layout/sub_reference" as="xs:integer"/>
-                        <xsl:choose>
-                            <!-- test if we have already a valid photo reference -->
-                            <xsl:when test="../ncm-object[sp_id=$spId and (ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9) and layouts-of-a-ncm-object/ncm-layout[reference=$caption_reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $caption_subreference]]"/>
-                            <xsl:otherwise>
-                                <xsl:apply-templates select="." mode="picture"/>
-                            </xsl:otherwise>
-                        </xsl:choose>
-                    </xsl:for-each>
-                </xsl:otherwise>
-            </xsl:choose>
-            <!-- comment out the following block since object type=16 is used as WEB_SUMMARY, not as CREDIT
-            <xsl:choose>
-                <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]">
-                    <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]"  mode="picture"/>
-                </xsl:when>
-                <xsl:when test="../ncm-layout[reference=$reference and xs:integer(sub_reference) eq $subreference]//ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16]">
-                    <xsl:apply-templates select="../ncm-layout[reference=$reference and xs:integer(sub_reference) eq $subreference]//ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]"  mode="picture"/>
-                </xsl:when>
-                <xsl:otherwise>
-                    <xsl:for-each select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16]">
-                        <xsl:variable name="credit_reference" select=".//ncm-layout/reference"/>
-                        <xsl:variable name="credit_subreference" select=".//ncm-layout/sub_reference" as="xs:integer"/>
-                        <xsl:choose>
-                            <!-#- test if we have already a valid credit reference -#->
-                            <xsl:when test="../ncm-layout[reference=$credit_reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $credit_subreference]//ncm-object[sp_id=$spId and (ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9)]"/>
-                            <xsl:otherwise>
-                                <xsl:apply-templates select="." mode="picture"/>
-                            </xsl:otherwise>
-                        </xsl:choose>
-                    </xsl:for-each>
-                </xsl:otherwise>
-            </xsl:choose>
-            -->
+            <xsl:comment select="concat('reference: ', ../../reference, '; sub_reference: ', ../../sub_reference)"/>
+            <xsl:if test="$spId!=0"><!-- part of a package -->
+                <!-- find matching caption -->
+                <xsl:choose>
+                    <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and relation_obj_id=$objId and (channel=$channel or not(string(channel/@name)))]">
+                        <xsl:comment select="'Caption by relation.'"/>
+                        <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and relation_obj_id=$objId and (channel=$channel or not(string(channel/@name)))]" mode="picture"/>
+                    </xsl:when>
+                    <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and layouts-of-a-ncm-object/ncm-layout[reference=$reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $subreference]]">
+                        <xsl:comment select="'Caption by reference.'"/>
+                        <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3 and layouts-of-a-ncm-object/ncm-layout[reference=$reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $subreference]]" mode="picture"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:comment select="'Caption by fallback.'"/>
+                        <xsl:for-each select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=3]">
+                            <xsl:variable name="caption_reference" select=".//ncm-layout/reference"/>
+                            <xsl:variable name="caption_subreference" select=".//ncm-layout/sub_reference" as="xs:integer"/>
+                            <xsl:choose>
+                                <!-- test if we have already a valid photo reference -->
+                                <xsl:when test="../ncm-object[sp_id=$spId and (ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9) and layouts-of-a-ncm-object/ncm-layout[reference=$caption_reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $caption_subreference]]"/>
+                                <xsl:otherwise>
+                                    <xsl:apply-templates select="." mode="picture"/>
+                                </xsl:otherwise>
+                            </xsl:choose>
+                        </xsl:for-each>
+                    </xsl:otherwise>
+                </xsl:choose>
+                <!-- find matching credit -->
+                <!-- comment out the following block since object type=16 is used as WEB_SUMMARY, not as CREDIT
+                <xsl:choose>
+                    <xsl:when test="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]">
+                        <xsl:apply-templates select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]"  mode="picture"/>
+                    </xsl:when>
+                    <xsl:when test="../ncm-layout[reference=$reference and xs:integer(sub_reference) eq $subreference]//ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16]">
+                        <xsl:apply-templates select="../ncm-layout[reference=$reference and xs:integer(sub_reference) eq $subreference]//ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16 and relation_obj_id=$objId]"  mode="picture"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:for-each select="../ncm-object[sp_id=$spId and ncm-type-property/object-type/@id=16]">
+                            <xsl:variable name="credit_reference" select=".//ncm-layout/reference"/>
+                            <xsl:variable name="credit_subreference" select=".//ncm-layout/sub_reference" as="xs:integer"/>
+                            <xsl:choose>
+                                <!-#- test if we have already a valid credit reference -#->
+                                <xsl:when test="../ncm-layout[reference=$credit_reference and xs:integer(sub_reference) ne 0 and xs:integer(sub_reference) eq $credit_subreference]//ncm-object[sp_id=$spId and (ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9)]"/>
+                                <xsl:otherwise>
+                                    <xsl:apply-templates select="." mode="picture"/>
+                                </xsl:otherwise>
+                            </xsl:choose>
+                        </xsl:for-each>
+                    </xsl:otherwise>
+                </xsl:choose>
+                -->                
+            </xsl:if>            
         </xsl:element>
     </xsl:template>
 
@@ -501,7 +509,7 @@
     </xsl:template>
     -->
     
-    <xsl:template match="ncm-object[ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9]" mode="standalone">
+    <xsl:template match="ncm-object[ncm-type-property/object-type/@id=6 or ncm-type-property/object-type/@id=9]" mode="picture-item">
         <xsl:variable name="objId" select="./obj_id"/>
         <xsl:variable name="objType" select="./ncm-type-property/object-type/@id"/>
         <xsl:element name="nitf">
@@ -556,7 +564,9 @@
                         </xsl:attribute>
                     </xsl:element>
                     <xsl:element name="definition">
-                        <xsl:value-of select="if ($objType=9) then 'GRAPHIC' else 'IMAGE'"/>
+                        <xsl:attribute name="type">
+                            <xsl:value-of select="if ($objType=9) then 'GRAPHIC' else 'IMAGE'"/>
+                        </xsl:attribute>
                     </xsl:element>
                 </xsl:element>
             </xsl:element>
