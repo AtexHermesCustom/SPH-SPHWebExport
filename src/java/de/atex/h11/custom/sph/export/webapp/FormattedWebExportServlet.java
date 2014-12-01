@@ -272,8 +272,8 @@ public class FormattedWebExportServlet extends HttpServlet {
                 
                 // check if this is a STORY or an IMAGE/GRAPHIC xml file
                 boolean isImageXML = ((Boolean) xp.evaluate("/nitf/head/docdata/definition/@type!='STORY'", 
-                        doc, XPathConstants.BOOLEAN)).booleanValue();
-                
+                        storyDoc, XPathConstants.BOOLEAN)).booleanValue();
+                        
                 // 20120607 jpm: process photo nodes of both STORY and IMAGE xml files
                 //NodeList nl = (NodeList) xp.evaluate("/nitf[head/docdata/definition/@type='STORY']/body/photo", storyDoc, XPathConstants.NODESET);
                 NodeList nl = (NodeList) xp.evaluate("/nitf/body/photo | /nitf/body/graphic", storyDoc, XPathConstants.NODESET);
